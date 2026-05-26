@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
+import CreateAccountForm from './create-account-form'
 
 export default async function CheckoutSuccessPage({
   searchParams,
@@ -57,6 +58,10 @@ export default async function CheckoutSuccessPage({
             <p className="mt-4 text-sm text-zinc-400">
               A copy of your download link has been sent to {order.guest_email ?? 'your email'}.
             </p>
+
+            {order.guest_email && (
+              <CreateAccountForm email={order.guest_email} />
+            )}
           </>
         ) : (
           <>
