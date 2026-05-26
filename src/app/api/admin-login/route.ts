@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   }
 
   const from = req.nextUrl.searchParams.get('from') ?? '/dashboard'
-  const res = NextResponse.json({ ok: true, redirect: from })
+  const res = NextResponse.redirect(new URL(from, req.url), { status: 302 })
 
   res.cookies.set(COOKIE_NAME, COOKIE_VALUE, {
     httpOnly: true,

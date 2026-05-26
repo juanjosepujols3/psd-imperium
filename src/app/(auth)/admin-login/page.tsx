@@ -22,18 +22,19 @@ function AdminLoginForm() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
+      redirect: 'manual', // handle redirect manually
     })
 
-    const data = await res.json()
-
-    if (!res.ok) {
+    if (res.status === 401) {
+      const data = await res.json()
       setError(data.error ?? 'Invalid credentials')
       setLoading(false)
       return
     }
 
-    // Cookie is now set — do a full page navigation so middleware picks it up
-    window.location.href = data.redirect
+    // 302 redirect — follow it as a full page navigation
+    const location = res.headers.get('location') ?? '/dashboard'
+    window.location.href = location
   }
 
   return (
