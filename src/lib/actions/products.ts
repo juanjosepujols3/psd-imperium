@@ -19,8 +19,8 @@ export async function saveProduct(formData: FormData) {
     price: Number(formData.get('price')),
     category_slug: formData.get('category') as string,
     country: formData.get('country') as string,
-    image_url: formData.get('image_url') as string,
-    file_url: formData.get('file_url') as string,
+    image_url: (formData.get('image_url') as string) || null,
+    file_url: (formData.get('file_url') as string) || null,
     featured: formData.get('featured') === 'on',
   }
 
