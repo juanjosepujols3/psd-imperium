@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { ProductCard } from './components/product-card'
+import { ProductCard, type PublicProduct } from './components/product-card'
 import { SectionHeader } from './components/section-header'
 
 export const revalidate = 60
@@ -23,7 +23,7 @@ export default async function HomePage() {
     .map((cat) => ({
       ...cat,
       count: products.filter((p) => p.category_slug === cat.slug).length,
-      items: products.filter((p) => p.category_slug === cat.slug).slice(0, 4),
+      items: products.filter((p) => p.category_slug === cat.slug).slice(0, 4) as PublicProduct[],
     }))
     .filter((cat) => cat.items.length > 0)
 
@@ -156,7 +156,7 @@ export default async function HomePage() {
               viewAllHref={`/category/${cat.slug}`}
             />
             <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {cat.items.map((p) => (
+              {cat.items.map((p: PublicProduct) => (
                 <ProductCard key={p.id} product={p} />
               ))}
             </div>
