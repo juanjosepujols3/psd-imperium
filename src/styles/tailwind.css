@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: var(--font-inter), Inter, sans-serif;
+  --font-sans--font-feature-settings: 'cv11';
+}
