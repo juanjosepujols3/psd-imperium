@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
   // Admin dashboard: cookie-based auth (unchanged)
   if (pathname.startsWith('/dashboard')) {
     const session = request.cookies.get('admin_session')
-    const isValid = session?.value === process.env.ADMIN_SECRET
+    const isValid = session?.value === 'psd-admin-authenticated'
     if (!isValid) {
       const loginUrl = new URL('/admin-login', request.url)
       loginUrl.searchParams.set('from', pathname)
