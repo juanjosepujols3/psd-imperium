@@ -1,7 +1,6 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { revalidatePath } from 'next/cache'
 
 export async function saveSettings(_: unknown, formData: FormData): Promise<{ success: boolean; error?: string }> {
   try {
@@ -20,8 +19,6 @@ export async function saveSettings(_: unknown, formData: FormData): Promise<{ su
       if (error) return { success: false, error: error.message }
     }
 
-    revalidatePath('/dashboard/settings')
-    revalidatePath('/')
     return { success: true }
   } catch (e) {
     return { success: false, error: String(e) }
