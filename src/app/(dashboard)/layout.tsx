@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TelegramSupport } from '@/components/telegram-support'
-import { isAdminLoggedIn } from '@/lib/auth'
+import { isAdminLoggedIn } from '@/lib/admin-session'
 
 const navItems = [
   { href: '/dashboard', label: 'Overview', icon: '📊' },
