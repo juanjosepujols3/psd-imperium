@@ -2,7 +2,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { saveSettings } from '@/lib/actions/settings'
 import { SettingsSavedToast } from './settings-saved-toast'
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ saved?: string }>
+}) {
+  const { saved } = await searchParams
   const admin = createAdminClient()
   const { data: rows } = await admin.from('settings').select('key, value')
 
@@ -64,7 +69,7 @@ export default async function SettingsPage() {
           </div>
         </div>
 
-        <SettingsSavedToast />
+        <SettingsSavedToast saved={saved === '1'} />
       </form>
     </div>
   )
