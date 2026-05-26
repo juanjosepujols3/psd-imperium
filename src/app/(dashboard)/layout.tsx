@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TelegramSupport } from '@/components/telegram-support'
-import { isAdminLoggedIn } from '@/lib/admin-session'
+import { isAdminLoggedIn, logoutAdmin } from '@/lib/auth'
 
 const navItems = [
   { href: '/dashboard', label: 'Overview', icon: '📊' },
@@ -42,7 +42,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </nav>
         <div className="absolute bottom-4 left-0 w-60 space-y-2 px-5">
           <Link href="/" className="block text-xs text-zinc-400 hover:text-zinc-600">← Back to site</Link>
-          <Link href="/logout?type=admin" className="block text-xs text-red-400 hover:text-red-600">Sign out</Link>
+          <form action={async () => {
+            'use server'
+            await logoutAdmin()
+            redirect('/admin-login')
+          }}>
+            <button type="submit" className="block text-xs text-red-400 hover:text-red-600">Sign out</button>
+          </form>
         </div>
       </aside>
 
