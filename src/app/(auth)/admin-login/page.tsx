@@ -1,12 +1,10 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { loginAdmin } from '@/lib/auth'
 
 function AdminLoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const from = searchParams.get('from') ?? '/dashboard'
 
@@ -20,15 +18,22 @@ function AdminLoginForm() {
     setLoading(true)
     setError('')
 
-    const result = await loginAdmin(email, password)
+    const res = await fetch(`/api/admin-login?from=${encodeURIComponent(from)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
 
-    if (result.success) {
-      router.push(from)
-      router.refresh()
-    } else {
-      setError(result.error ?? 'Invalid credentials')
+    const data = await res.json()
+
+    if (!res.ok) {
+      setError(data.error ?? 'Invalid credentials')
       setLoading(false)
+      return
     }
+
+    // Cookie is now set — do a full page navigation so middleware picks it up
+    window.location.href = data.redirect
   }
 
   return (
