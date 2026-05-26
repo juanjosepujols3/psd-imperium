@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 
 export async function saveSettings(formData: FormData) {
   const admin = createAdminClient()
@@ -19,4 +20,6 @@ export async function saveSettings(formData: FormData) {
   }
 
   revalidatePath('/dashboard/settings')
+  revalidatePath('/', 'layout')
+  redirect('/dashboard/settings?saved=1')
 }
