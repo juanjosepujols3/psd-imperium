@@ -1,13 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { saveSettings } from '@/lib/actions/settings'
-import { SettingsSavedToast } from './settings-saved-toast'
+import { SettingsForm } from './settings-saved-toast'
 
-export default async function SettingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ saved?: string }>
-}) {
-  const { saved } = await searchParams
+export default async function SettingsPage() {
   const admin = createAdminClient()
   const { data: rows } = await admin.from('settings').select('key, value')
 
@@ -19,7 +13,7 @@ export default async function SettingsPage({
       <h1 className="text-2xl font-bold text-zinc-900">Settings</h1>
       <p className="mt-1 text-sm text-zinc-500">Configure your store</p>
 
-      <form action={saveSettings} className="mt-6 space-y-6">
+      <SettingsForm>
         <div className="rounded-xl border border-zinc-200 bg-white p-6">
           <h2 className="text-sm font-semibold text-zinc-900">Store Information</h2>
           <div className="mt-4 space-y-4">
@@ -68,9 +62,7 @@ export default async function SettingsPage({
               className="mt-1.5 block w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
           </div>
         </div>
-
-        <SettingsSavedToast saved={saved === '1'} />
-      </form>
+      </SettingsForm>
     </div>
   )
 }

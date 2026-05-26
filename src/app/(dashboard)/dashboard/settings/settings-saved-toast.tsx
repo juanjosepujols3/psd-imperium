@@ -1,26 +1,33 @@
 'use client'
 
-import { useFormStatus } from 'react-dom'
+import { useActionState } from 'react'
+import { saveSettings } from '@/lib/actions/settings'
 
-function SubmitButton() {
-  const { pending } = useFormStatus()
-  return (
-    <button type="submit" disabled={pending}
-      className="w-full rounded-lg bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors">
-      {pending ? 'Saving...' : 'Save Settings'}
-    </button>
-  )
-}
+const initialState = { success: false, error: undefined as string | undefined }
 
-export function SettingsSavedToast({ saved }: { saved?: boolean }) {
+export function SettingsForm({ children }: { children: React.ReactNode }) {
+  const [state, action, pending] = useActionState(saveSettings, initialState)
+
   return (
-    <>
-      {saved && (
-        <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm font-medium text-emerald-700">
+    <form action={action} className="space-y-6">
+      {state.success && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
           ✓ Settings saved successfully
         </div>
       )}
-      <SubmitButton />
-    </>
+      {state.error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+          Error: {state.error}
+        </div>
+      )}
+      {children}
+      <button
+        type="submit"
+        disabled={pending}
+        className="w-full rounded-lg bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+      >
+        {pending ? 'Saving...' : 'Save Settings'}
+      </button>
+    </form>
   )
 }
