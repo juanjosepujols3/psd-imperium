@@ -4,15 +4,19 @@ const COOKIE_NAME = 'admin_session'
 const COOKIE_VALUE = 'psd-admin-authenticated'
 
 export async function POST(req: NextRequest) {
-  const { email, password } = await req.json()
+  const formData = await req.formData()
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
+  const from = (formData.get('from') as string) || '/dashboard'
 
   if (email !== process.env.ADMIN_EMAIL || password !== process.env.ADMIN_PASSWORD) {
-    return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+    const loginUrl = new URL('/admin-login', req.url)
+    loginUrl.searchParams.set('from', from)
+    loginUrl.searchParams.set('error', '1')
+    return NextResponse.redirect(loginUrl, { status: 303 })
   }
 
-  const from = req.nextUrl.searchParams.get('from') ?? '/dashboard'
-  const res = NextResponse.redirect(new URL(from, req.url), { status: 302 })
-
+  const res = NextResponse.redirect(new URL(from, req.url), { status: 303 })
   res.cookies.set(COOKIE_NAME, COOKIE_VALUE, {
     httpOnly: true,
     secure: true,
@@ -20,6 +24,5 @@ export async function POST(req: NextRequest) {
     maxAge: 60 * 60 * 24 * 7,
     path: '/',
   })
-
   return res
 }
