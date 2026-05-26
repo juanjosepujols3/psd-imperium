@@ -11,7 +11,7 @@ export default async function OrdersPage() {
 
   const { data: orders } = await admin
     .from('orders')
-    .select('*, customers(email, name)')
+    .select('*')
     .order('created_at', { ascending: false })
 
   const all = orders ?? []
@@ -69,8 +69,7 @@ export default async function OrdersPage() {
                 <tr key={order.id} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50">
                   <td className="px-4 py-3 font-mono text-xs text-zinc-500">{order.id.slice(0, 8).toUpperCase()}</td>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-zinc-900">{order.customers?.name ?? '—'}</p>
-                    <p className="text-xs text-zinc-400">{order.customers?.email ?? '—'}</p>
+                    <p className="text-xs text-zinc-400">{order.guest_email ?? '—'}</p>
                   </td>
                   <td className="px-4 py-3 max-w-xs">
                     <p className="truncate text-zinc-700">{order.product_name}</p>
