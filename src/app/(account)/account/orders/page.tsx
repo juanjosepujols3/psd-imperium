@@ -16,7 +16,7 @@ export default async function MyOrdersPage() {
   const { data: orders } = await supabase
     .from('orders')
     .select('*')
-    .eq('customer_id', user.id)
+    .or(`customer_id.eq.${user.id},guest_email.eq.${user.email}`)
     .order('created_at', { ascending: false })
 
   const allOrders = orders ?? []
