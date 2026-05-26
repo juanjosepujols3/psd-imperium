@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TelegramSupport } from '@/components/telegram-support'
+import { isAdminLoggedIn } from '@/lib/auth'
 
 const navItems = [
   { href: '/dashboard', label: 'Overview', icon: '📊' },
@@ -12,6 +14,9 @@ const navItems = [
 ]
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const loggedIn = await isAdminLoggedIn()
+  if (!loggedIn) redirect('/admin-login?from=/dashboard')
+
   const admin = createAdminClient()
   const { data: rows } = await admin.from('settings').select('key, value').eq('key', 'telegram_username')
   const telegramUsername = rows?.[0]?.value ?? ''
