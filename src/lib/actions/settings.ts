@@ -21,7 +21,7 @@ export async function saveSettings(_: unknown, formData: FormData): Promise<{ su
     }
 
     revalidatePath('/dashboard/settings')
-    revalidatePath('/(marketing)', 'layout')
+    revalidatePath('/')
     return { success: true }
   } catch (e) {
     return { success: false, error: String(e) }
