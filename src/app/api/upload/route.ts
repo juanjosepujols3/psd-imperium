@@ -15,9 +15,10 @@ export async function POST(req: NextRequest) {
   const buffer = new Uint8Array(arrayBuffer)
 
   const admin = createAdminClient()
+  const contentType = file.type || 'application/octet-stream'
   const { error } = await admin.storage
     .from(bucket)
-    .upload(filename, buffer, { contentType: file.type, upsert: false })
+    .upload(filename, buffer, { contentType, upsert: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

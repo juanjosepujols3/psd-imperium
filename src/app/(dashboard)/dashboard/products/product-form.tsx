@@ -1,14 +1,31 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import Link from 'next/link'
 import { saveProduct } from '@/lib/actions/products'
+import Link from 'next/link'
+import { useRef, useState } from 'react'
 
-interface Category { slug: string; label: string; emoji: string }
+interface Category {
+  slug: string
+  label: string
+  emoji: string
+}
 interface Product {
-  id: string; name: string; slug: string; description: string; price: number
-  category_slug: string; image_url: string | null; file_url: string | null
-  featured: boolean; country: string | null
+  id: string
+  name: string
+  slug: string
+  description: string
+  price: number
+  category_slug: string
+  image_url: string | null
+  file_url: string | null
+  featured: boolean
+  country: string | null
+}
+
+function toDirectUrl(url: string): string {
+  const match = url.match(/drive\.google\.com\/file\/d\/([^/]+)/)
+  if (match) return `https://drive.google.com/uc?export=download&id=${match[1]}`
+  return url
 }
 
 export function ProductForm({ product, categories }: { product?: Product; categories: Category[] }) {
@@ -18,9 +35,8 @@ export function ProductForm({ product, categories }: { product?: Product; catego
   const [saving, setSaving] = useState(false)
   const [imageUrl, setImageUrl] = useState<string>(product?.image_url ?? '')
   const [fileUrl, setFileUrl] = useState<string>(product?.file_url ?? '')
-  const [fileName, setFileName] = useState<string>(
-    product?.file_url ? product.file_url.split('/').pop() ?? '' : ''
-  )
+  const [fileError, setFileError] = useState<string>('')
+  const [fileName, setFileName] = useState<string>(product?.file_url ? (product.file_url.split('/').pop() ?? '') : '')
   const imageInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -34,7 +50,10 @@ export function ProductForm({ product, categories }: { product?: Product; catego
       fd.append('bucket', 'product-images')
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
       const json = await res.json()
-      if (json.url) { setImageUrl(json.url); setImagePreview(json.url) }
+      if (json.url) {
+        setImageUrl(json.url)
+        setImagePreview(json.url)
+      }
     } finally {
       setUploadingImg(false)
     }
@@ -44,20 +63,48 @@ export function ProductForm({ product, categories }: { product?: Product; catego
     const file = e.target.files?.[0]
     if (!file) return
     setUploadingFile(true)
+    setFileError('')
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('bucket', 'product-files')
-      const res = await fetch('/api/upload', { method: 'POST', body: fd })
-      const json = await res.json()
-      if (json.url) { setFileUrl(json.url); setFileName(file.name) }
+      // Step 1: get signed URL from server (no file data sent here)
+      const urlRes = await fetch('/api/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bucket: 'product-files', filename: file.name }),
+      })
+      const { signedUrl, publicUrl, error: urlError } = await urlRes.json()
+      if (urlError) {
+        setFileError(urlError)
+        return
+      }
+
+      // Step 2: upload directly to Supabase (bypasses Vercel 4.5MB limit)
+      const uploadRes = await fetch(signedUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      })
+      if (!uploadRes.ok) {
+        setFileError('Upload failed — try again')
+        return
+      }
+
+      setFileUrl(publicUrl)
+      setFileName(file.name)
+    } catch {
+      setFileError('Network error — check your connection')
     } finally {
       setUploadingFile(false)
     }
   }
 
   return (
-    <form action={async (fd) => { setSaving(true); await saveProduct(fd) }} className="space-y-6">
+    <form
+      action={async (fd) => {
+        setSaving(true)
+        await saveProduct(fd)
+      }}
+      className="space-y-6"
+    >
       {product && <input type="hidden" name="id" value={product.id} />}
       <input type="hidden" name="image_url" value={imageUrl} />
       <input type="hidden" name="file_url" value={fileUrl} />
@@ -75,7 +122,12 @@ export function ProductForm({ product, categories }: { product?: Product; catego
             ) : (
               <div className="text-center">
                 <svg className="mx-auto h-10 w-10 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
                 </svg>
                 <p className="mt-2 text-sm font-medium text-zinc-600">Click to upload image</p>
                 <p className="text-xs text-zinc-400">PNG, JPG, WEBP — max 5MB</p>
@@ -87,22 +139,47 @@ export function ProductForm({ product, categories }: { product?: Product; catego
               </div>
             )}
           </div>
-          <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleImageChange} />
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleImageChange}
+          />
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImg}
-              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 transition-colors">
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={uploadingImg}
+              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+            >
               {uploadingImg ? 'Uploading...' : imagePreview ? 'Change image' : 'Select image'}
             </button>
             {imagePreview && (
-              <button type="button" onClick={() => { setImagePreview(''); setImageUrl('') }} className="text-sm text-red-500 hover:underline">
+              <button
+                type="button"
+                onClick={() => {
+                  setImagePreview('')
+                  setImageUrl('')
+                }}
+                className="text-sm text-red-500 hover:underline"
+              >
                 Remove
               </button>
             )}
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-500">Or paste image URL</label>
-            <input type="url" value={imageUrl} onChange={(e) => { setImageUrl(e.target.value); setImagePreview(e.target.value) }}
-              placeholder="https://..." className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+            <input
+              type="url"
+              value={imageUrl}
+              onChange={(e) => {
+                setImageUrl(e.target.value)
+                setImagePreview(e.target.value)
+              }}
+              placeholder="https://..."
+              className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+            />
           </div>
         </div>
       </div>
@@ -112,41 +189,77 @@ export function ProductForm({ product, categories }: { product?: Product; catego
         <h2 className="text-sm font-semibold text-zinc-900">Product Details</h2>
         <div className="mt-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-zinc-700">Name <span className="text-red-500">*</span></label>
-            <input type="text" name="name" defaultValue={product?.name} required placeholder="e.g. USA Passport PSD Template"
-              className="mt-1.5 block w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+            <label className="block text-sm font-medium text-zinc-700">
+              Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="name"
+              defaultValue={product?.name}
+              required
+              placeholder="e.g. USA Passport PSD Template"
+              className="mt-1.5 block w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+            />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-700">Category <span className="text-red-500">*</span></label>
-            <select name="category" defaultValue={product?.category_slug ?? ''} required
-              className="mt-1.5 block w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500">
-              <option value="" disabled>Select a category</option>
+            <label className="block text-sm font-medium text-zinc-700">
+              Category <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="category"
+              defaultValue={product?.category_slug ?? ''}
+              required
+              className="mt-1.5 block w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+            >
+              <option value="" disabled>
+                Select a category
+              </option>
               {categories.map((cat) => (
-                <option key={cat.slug} value={cat.slug}>{cat.emoji} {cat.label}</option>
+                <option key={cat.slug} value={cat.slug}>
+                  {cat.emoji} {cat.label}
+                </option>
               ))}
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-zinc-700">Country / State</label>
-            <input type="text" name="country" defaultValue={product?.country ?? ''} placeholder="e.g. United States"
-              className="mt-1.5 block w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+            <input
+              type="text"
+              name="country"
+              defaultValue={product?.country ?? ''}
+              placeholder="e.g. United States"
+              className="mt-1.5 block w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+            />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-700">Price <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-zinc-700">
+              Price <span className="text-red-500">*</span>
+            </label>
             <div className="relative mt-1.5">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
-              <input type="number" name="price" defaultValue={product?.price ?? 25} required min={1}
-                className="block w-full rounded-lg border border-zinc-300 py-2.5 pl-7 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+              <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-zinc-500">$</span>
+              <input
+                type="number"
+                name="price"
+                defaultValue={product?.price ?? 25}
+                required
+                min={1}
+                className="block w-full rounded-lg border border-zinc-300 py-2.5 pr-3 pl-7 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+              />
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-zinc-700">Description</label>
-            <textarea name="description" defaultValue={product?.description ?? ''} rows={4} placeholder="Describe the template..."
-              className="mt-1.5 block w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+            <textarea
+              name="description"
+              defaultValue={product?.description ?? ''}
+              rows={4}
+              placeholder="Describe the template..."
+              className="mt-1.5 block w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+            />
           </div>
         </div>
       </div>
@@ -169,7 +282,12 @@ export function ProductForm({ product, categories }: { product?: Product; catego
               <div className="flex items-center gap-3 px-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
                   </svg>
                 </div>
                 <div className="min-w-0">
@@ -180,48 +298,93 @@ export function ProductForm({ product, categories }: { product?: Product; catego
             ) : (
               <div className="text-center">
                 <svg className="mx-auto h-8 w-8 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  />
                 </svg>
                 <p className="mt-1 text-sm font-medium text-zinc-600">Upload PSD / ZIP file</p>
               </div>
             )}
           </div>
-          <input ref={fileInputRef} type="file" accept=".psd,.zip,.rar,.7z" className="hidden" onChange={handleDocChange} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".psd,.zip,.rar,.7z"
+            className="hidden"
+            onChange={handleDocChange}
+          />
+          {fileError && <p className="text-sm text-red-500">{fileError}</p>}
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingFile}
-              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 transition-colors">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingFile}
+              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50"
+            >
               {uploadingFile ? 'Uploading...' : fileName ? 'Change file' : 'Select file'}
             </button>
             {fileName && (
-              <button type="button" onClick={() => { setFileUrl(''); setFileName('') }} className="text-sm text-red-500 hover:underline">
+              <button
+                type="button"
+                onClick={() => {
+                  setFileUrl('')
+                  setFileName('')
+                }}
+                className="text-sm text-red-500 hover:underline"
+              >
                 Remove
               </button>
             )}
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-500">Or paste file URL</label>
-            <input type="url" value={fileUrl} onChange={(e) => { setFileUrl(e.target.value); setFileName(e.target.value.split('/').pop() ?? '') }}
-              placeholder="https://..." className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+            <input
+              type="url"
+              value={fileUrl}
+              onChange={(e) => {
+                const url = toDirectUrl(e.target.value)
+                setFileUrl(url)
+                setFileName(url.split('/').pop() ?? '')
+              }}
+              placeholder="https://..."
+              className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+            />
           </div>
         </div>
       </div>
 
       {/* Featured */}
       <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-5">
-        <input type="checkbox" name="featured" id="featured" defaultChecked={product?.featured}
-          className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500" />
+        <input
+          type="checkbox"
+          name="featured"
+          id="featured"
+          defaultChecked={product?.featured}
+          className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+        />
         <div>
-          <label htmlFor="featured" className="cursor-pointer text-sm font-medium text-zinc-900">Mark as Featured</label>
+          <label htmlFor="featured" className="cursor-pointer text-sm font-medium text-zinc-900">
+            Mark as Featured
+          </label>
           <p className="text-xs text-zinc-500">Featured products appear highlighted on the homepage</p>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={saving || uploadingImg || uploadingFile}
-          className="flex-1 rounded-lg bg-emerald-600 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors">
+        <button
+          type="submit"
+          disabled={saving || uploadingImg || uploadingFile}
+          className="flex-1 rounded-lg bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+        >
           {saving ? 'Saving...' : product ? 'Save Changes' : 'Create Product'}
         </button>
-        <Link href="/dashboard/products" className="rounded-lg border border-zinc-300 bg-white px-6 py-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors">
+        <Link
+          href="/dashboard/products"
+          className="rounded-lg border border-zinc-300 bg-white px-6 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+        >
           Cancel
         </Link>
       </div>
